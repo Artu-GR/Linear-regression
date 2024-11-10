@@ -1,0 +1,32 @@
+.featuresInfo {
+    width: 100%;
+    display: flex;
+}
+
+.card.selected {
+    background-color: #cce5ff;
+    border-color: #b8daff;
+}
+
+.selectable-card {
+    width: 18vw;
+    position: relative;
+}
+
+
+.card {
+    height: 100%;
+    margin: 1vw;
+    margin-right: 0;
+}
+
+.content {
+    margin:1vw;
+}
+
+.customInput {
+    width: 20%;
+    position:relative;
+    display:inline-block;
+    margin-left:10px;
+}

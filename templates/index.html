@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Model Prediction</title>
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+        <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+        <script src="https://kit.fontawesome.com/3672dac92b.js" crossorigin="anonymous"></script>
+        <style>
+            /* Styling for hidden inputs */
+            .hidden {
+                display: none;
+            }
+        </style>
+    </head>
+    <body>
+        <form method="POST">
+            <!-- Feature selection -->
+            <div class="content">
+                <h1>Modelo de Regresion Lineal</h1>
+                <h2>Variable Regresora</h2>
+                <h3>Consumo de Energia Electrica (kWh per capita)</h3>
+                <h6>El consumo de energía eléctrica mide la producción de las centrales eléctricas y de las plantas de cogeneración menos las pérdidas ocurridas en la transmisión, distribución y transformación y el consumo propio de las plantas de cogeneración.</h6>
+                <h3>Selecciona los indicadores:</h3>
+                <div class="featuresInfo">
+                    {% for feature in all_features %}
+                    <div>
+                        <div class="card selectable-card {% if feature.title in selected_features %}selected{% endif %}">
+                            <img class="card-img-top" src="{{feature.image}}">
+                            <div class="card-body">
+                                <h5 class="card-title">{{ feature.title }}</h5>
+                                <h6 class="card-title">({{ feature.uom }})</h6>
+                                <h6 class="card-title"> Descripcion </h6>
+                                <p class="card-text">{{ feature.description }}</p>
+                                <h6 class="card-title"> México </h6>
+                                <p class="card-text">{{ feature.mexico_info }}</p>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="features" value="{{ feature.title }}" {% if feature.title in selected_features %} checked {% endif %}>
+                                    <label class="form-check-label">
+                                        Seleccionar Indicador
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            <br><br>
+                <button class="btn btn-primary"  type="submit" name="generate">Generar Modelo</button>
+            
+            <!-- Model Display -->
+            <div class="{% if not model %}hidden{% endif %}">
+                <br><br>
+                <h4>Modelo generado:</h4>
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">{{ model or 'Dynamic model based on selected features' }}</h5>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Inputs Section (Hide if no model) -->
+            <div class="{% if not selected_features %}hidden{% endif %}">
+                <br><br>
+                <h4>Valores de Entrada:</h4>
+                    {% for feature in selected_features %}
+                    <div class="d-flex align-items-center mb-3">
+                        <label class="h4" for="input_{{ feature }}">{{ features_dict[feature] }}:</label>
+                        <input class="form-control customInput" type="number" name="input_{{ feature }}" id="input_{{ feature }}"
+                               value="{{ inputs.get(feature, '') }}"
+                        {% if features_dict[feature] == 'x1' %} min="0"
+                        {% elif features_dict[feature] == 'x2' %} min="-2.5" max="2.5" step="0.01"
+                        {% elif features_dict[feature] == 'x3' %} min="0" max="100"
+                        {% elif features_dict[feature] == 'x4' %} min="0" max="100"
+                        {% elif features_dict[feature] == 'x5' %} min="0"
+                        {% endif %}>
+                        {% for featureInfo in all_features %}
+                            {% if feature in featureInfo['title'] %}
+                                <h5>&nbsp;&nbsp;{{featureInfo.uom}}</h5>
+                                <h5>&nbsp;&nbsp;-  {{feature}}</h5>
+                                <br>
+                            {% endif %}
+                        {% endfor %}
+                        <br>
+                    </div>
+                    {% endfor %}
+            </div>
+            <div class="{% if not model %}hidden{% endif %}">
+                <button class="btn btn-primary" type="submit" name="predict">Predecir Valor</button>
+                <button class="btn btn-info" type="submit" name="plot">Mostrar Gráfica</button>
+            </div>
+        </form>
+
+        <div class="modal fade" id="myModal" tabindex="-1" aria-labelledby="myModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+              <div class="modal-content">
+                <!-- Modal Header -->
+                <div class="modal-header">
+                  <h5 class="modal-title" id="myModalLabel">Prediccion Calculada:</h5>
+                  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <!-- Modal Body -->
+                    <div style="margin:10px;">
+                        <h4>Parametros:</h4>
+                        {% if not selected_features %}
+                        <h6>N/A</h6>
+                        {% endif %}
+                        {% for feature, value in inputs.items() %}
+                            <h6>{{feature}} = {{value}}
+                            {% for featureInfo in all_features %}
+                                {% if feature in featureInfo['title'] %}
+                                    {{featureInfo.uom}}</h6>
+                                {% endif %}
+                            {% endfor %}
+                        {% endfor %}
+                        <h4>Prediccion:</h4>
+                        <div>
+                            <h3>{{ predicted_value }} (kWh per capita) </h3>
+                        </div>
+                    </div>
+                <!-- Modal Footer -->
+                <div class="modal-footer">
+                  <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+              </div>
+            </div>
+        </div>
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    </body>
+</html>
+
+<script>
+
+    const cards = document.querySelectorAll('.selectable-card');
+
+    cards.forEach(card => {
+        card.addEventListener('click', () => {
+            // Toggle the 'selected' class to change color
+            card.classList.toggle('selected');
+
+            const checkbox = card.querySelector('.form-check-input');
+            if (checkbox) {
+                // Toggle the checkbox's checked state
+                checkbox.checked = !checkbox.checked;
+            }
+
+        });
+    });
+
+    // Get the modal element
+    const modalElement = document.getElementById('myModal');
+
+    // Create a new Modal instance
+    const myModal = new bootstrap.Modal(modalElement);
+
+    var predicted_value = "{{ predicted_value }}";
+    // Open the modal when the button is clicked
+    if (predicted_value !== 'null' && predicted_value !== '') {
+        // Open the modal if `predicted_value` is not null or empty
+        myModal.show();
+    }
+
+</script>
+
+
+
+
